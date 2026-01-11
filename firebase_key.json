@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "al-aqtat-realestate",
+  "private_key_id": "94661538b82edbf9573b3fad9b90ee455b8e0496",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDIptPZanpxOd49\nhDMX/pcfJGN/BNUFSpc6Y3jSid7LIHp23T4wWt4JSQEcru9rktHl1ymP11TbfY7p\nlo6Egym0e51309ojGPvAZqT/EbzPxCwq9BvAx3WUTMDAicPxKViKMe+ut6Yba3Ei\n9sGkFwlur0r0nxCaGq0kk4rnjOZA8NrMK8xlXRPyJ46+tUQSoUf3Xcr5C/ospIvB\n26f2Cu+hcgSGnQMnGpJBhK6i2k7136VgL/5j1ZZgSquLi2dYCA2gOH5LNPt6ivv4\n1UBE8Fl/Wz1rYrZrCv2KvjD57C4ys3reUTwkhYpGR5EE/GcuAHDzj2e6LbLelukY\nQReaSRXFAgMBAAECggEAEgW+CIzCU7I1boQVzMVu0HrFvw5xjcid3b46h3qfutH/\nffawU8qNn/rhMTDbS2fEF6dkUcmvEwnrkLqXsXpQgCgMREuQj896KVVu44Q119mQ\neAk2BvJDct8T/xdAtMQYck068JAJSPQ1FMViLjltfPYcvu0coiLcQ2lHNDYZJmLz\nFbNW5y8bHI8jJ33U+yTm71UpwAEcNWRkQDQax0CcmsYnk5fRlY3m0uRYY8L2u2Rp\nEXAN9+mNFC/YGKzbfySXBxyz1aXeZGZGi+Qu1Thj3UG7sHWRcntV8iK2pwRvsDaq\nIHB/QjNyuH7pD73QncVydQ20INQe/zq7VPScLCjcgQKBgQDvWXMdR1W0VGLqERcw\nQb/GH5Pz1mvXuQfGveQ3OPhso8dwUrbOIXml/GGMN0ueXsCLetIskzwuEMEvOnXO\n7fu8u2S8fKab3AKIz8fDChnDaAAbAOnFi5ZwRxWXYVmbgMghfl5BcHwmbr1DYn0C\nD3hdq+mOHR+0eM2wo/GAHi5jQQKBgQDWnDarDM5/kuKN/i6djDdfm0pemOafHRuU\nCtgbay/JRk3SmWLckfglZvyA8IhMEisbHsnwK/3Cbpd/pJBsbL2dVt4yYrGZH0wy\nnWuRkLhQZKdwVybm/6WW1UwmnzNozulP47z6it1yizX0BLOydhg19mys57F6TiO9\nrQB1Eq9FhQKBgQDn6eclTnJXmZCCNe8e/gYgpYZJNNEnpAxJ4MLZUyU6tvLO/gZM\n8piZYVLvdsCZgjvUqjwtnrgn9moJJf7ycxuBgp2YGLuit2npQFLRw960vPelMpxQ\nofExd18PX+9gQkcoVPZlN+XDo3dVbH+t2GmLccCKx+NpjcfXyPJ+bkAKQQKBgQCJ\nMpq8ZVaKNjQBxJK2g5JO268CpMsiw3ADB5+6f56wFPLhhM+v5N13w8v+/kaUIzVN\nhDRjByyWJS9TGbh+qFHcCVHJclDJbDnBTeQbziIWuxJT/lNPb/XDZJ7nPfWWtlhv\ni08f+LCzbo3Sb0MV/uthbCVzsDdE0jmFI9lb/tLwJQKBgCz07i6HwKW32hx5oS9r\nC5UNa8KW7cN9hj8troZM0ynnlEzA/3wqDbuLYZF7J/os+2wtnrL2GiK3Qcv+sDf3\nk3qus0kTy9IjJByybnzvnnWpbXBQLhDTh+CfmHYm5rZnmCl1qSmV1kbpt08YewdD\nsErVCfnw+YziayZedkV1PCln\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@al-aqtat-realestate.iam.gserviceaccount.com",
+  "client_id": "105825993899945901155",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40al-aqtat-realestate.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
