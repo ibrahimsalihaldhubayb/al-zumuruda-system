@@ -108,6 +108,5 @@ if search_id:
                 except Exception as e:
                     st.error(f"خطأ في إنشاء الوورد: {e}")
     else:
-        st.error("❌ القطعة مباعة تحتاج تحديث بالسحابة.")
-                
+        st.error("❌ القطعة غير موجودة في الـ PDF أو السحابة.")
 
