@@ -6,7 +6,8 @@ from docxtpl import DocxTemplate
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# --- 1. إعداد Firebase ---
+# --- 1. إعداد Firebase مع الذاكرة المؤقتة ---
+@st.cache_resource
 def init_firebase():
     if not firebase_admin._apps:
         try:
@@ -21,21 +22,35 @@ def init_firebase():
 
 db = init_firebase()
 
-def extract_price(price_val):
-    if not price_val: return 0.0
-    num = "".join(re.findall(r'\d+', str(price_val)))
-    return float(num) if num else 0.0
+# --- 2. دالة قراءة الـ PDF المسرعة (تحفظ البيانات في الذاكرة) ---
+@st.cache_data
+def load_all_units_from_pdf(path):
+    units = {}
+    if os.path.exists(path):
+        with pdfplumber.open(path) as p:
+            for page in p.pages:
+                table = page.extract_table()
+                if table:
+                    for r in table[1:]:
+                        if r and r[0]:
+                            uid = str(r[0]).strip()
+                            units[uid] = {
+                                'id': uid,
+                                'blk': r[1],
+                                'area': r[4],
+                                'price': "".join(re.findall(r'\d+', str(r[6]))) if r[6] else "0",
+                                'status': 'متاح'
+                            }
+    return units
 
-# دالة التنسيق المالي (إجبار التنسيق الإنجليزي)
 def format_money_en(amount):
-    # استخدام التنسيق اللاتيني الصريح لضمان الأرقام الإنجليزية
     return "{:,.2f}".format(amount).replace('٫', '.').replace('٬', ',')
 
 Z_COPPER = "#BC846C" 
 Z_DARK = "#1B3022" 
 Z_LIGHT = "#F4F1EE"
 
-# --- 2. نظام الأمان ---
+# --- 3. نظام الأمان ---
 def check_password():
     if "password_correct" not in st.session_state:
         st.session_state["password_correct"] = False
@@ -51,25 +66,20 @@ def check_password():
         return False
     return True
 
-# --- 3. محرك الوورد (تثبيت الأرقام الإنجليزية) ---
+# --- 4. محرك الوورد ---
 def create_word_offer(data, cust_name, net_p):
     try:
         current_dir = os.getcwd()
         template_path = os.path.join(current_dir, "Projecttemmplate.docx")
-        
         if not os.path.exists(template_path):
-            alternative = glob.glob(os.path.join(current_dir, "Project*.docx"))
-            if alternative: template_path = alternative[0]
+            alt = glob.glob(os.path.join(current_dir, "Project*.docx"))
+            if alt: template_path = alt[0]
             else: return None
 
         doc = DocxTemplate(template_path)
-        
         office_fees = 2000.00 
         total_with_fees = net_p + office_fees
         
-        auto_desc = f"بلك: {data['blk']} - مساحة: {data['area']} م²"
-        
-        # نرسل الأرقام كـ "نصوص" لضمان عدم تغير شكلها في الوورد
         context = {
             'date': datetime.now().strftime("%Y/%m/%d"),
             'name': str(cust_name),
@@ -79,45 +89,44 @@ def create_word_offer(data, cust_name, net_p):
             'price': str(format_money_en(net_p)), 
             'fees': str(format_money_en(office_fees)),
             'total': str(format_money_en(total_with_fees)),
-            'desc': auto_desc
+            'desc': f"بلك: {data['blk']} - مساحة: {data['area']} م²"
         }
-        
         doc.render(context)
         out_io = io.BytesIO()
         doc.save(out_io)
         return out_io.getvalue()
     except: return None
 
-# --- 4. الواجهة الرئيسية ---
+# --- الواجهة الرئيسية ---
 if check_password():
     st.set_page_config(page_title="نظام الزمردة العقاري", layout="wide")
-    st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap');* {{ direction: RTL; text-align: right; font-family: 'Cairo', sans-serif !important; }} .stApp {{ background-color: {Z_LIGHT}; }} label, .stMarkdown p {{ color: {Z_COPPER} !important; font-weight: bold !important; font-size: 18px !important; }} .modern-card {{ background: white; padding: 30px; border-radius: 20px; border-right: 15px solid {Z_COPPER}; box-shadow: 10px 10px 30px rgba(0,0,0,0.05); margin-bottom: 30px; }} .highlight-val {{ color: {Z_COPPER} !important; font-size: 24px !important; font-weight: 800 !important; }} .stDownloadButton {{ display: flex; justify-content: center; padding-top: 20px; }} .stDownloadButton>button {{ background: linear-gradient(135deg, {Z_COPPER} 0%, #a6735d 100%) !important; color: white !important; width: 80% !important; height: 65px !important; border-radius: 15px !important; font-size: 22px !important; font-weight: bold !important; border: none !important; }}</style>""", unsafe_allow_html=True)
+    st.markdown(f"""<style>@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap');* {{ direction: RTL; text-align: right; font-family: 'Cairo', sans-serif !important; }} .stApp {{ background-color: {Z_LIGHT}; }} .modern-card {{ background: white; padding: 30px; border-radius: 20px; border-right: 15px solid {Z_COPPER}; box-shadow: 10px 10px 30px rgba(0,0,0,0.05); margin-bottom: 30px; }} .highlight-val {{ color: {Z_COPPER} !important; font-size: 24px !important; font-weight: 800 !important; }} .stDownloadButton>button {{ background: linear-gradient(135deg, {Z_COPPER} 0%, #a6735d 100%) !important; color: white !important; width: 100% !important; height: 60px !important; border-radius: 15px !important; font-size: 20px !important; border: none !important; }}</style>""", unsafe_allow_html=True)
 
     st.markdown("<h1 style='text-align:center; color:#1B3022;'>🏛️ بوابة مبيعات مشروع الزمردة</h1>", unsafe_allow_html=True)
+    
+    # تحميل البيانات مرة واحدة فقط عند تشغيل التطبيق
+    pdf_path = "الوحدات الشاغرة في مشروع الزمردة حتى تاريخ 28-12-2025.pdf"
+    all_units = load_all_units_from_pdf(pdf_path)
+
     tab1, tab2 = st.tabs(["💎 المبيعات", "⚙️ السحابة"])
 
     with tab1:
         c1, c2, c3 = st.columns([1,2,1])
-        with c2: search_id = st.text_input("🔍 ابحث عن رقم القطعة:")
+        with c2: search_id = st.text_input("🔍 ادخل رقم القطعة للبحث السريع:")
         
         if search_id:
             uid = str(search_id).strip()
             res = None
+            
+            # البحث في السحابة أولاً (أسرع)
             if db:
                 doc_cloud = db.collection('units').document(uid).get()
                 if doc_cloud.exists: res = doc_cloud.to_dict()
             
-            if not res:
-                path = "الوحدات الشاغرة في مشروع الزمردة حتى تاريخ 28-12-2025.pdf"
-                if os.path.exists(path):
-                    with pdfplumber.open(path) as p:
-                        for page in p.pages:
-                            table = page.extract_table()
-                            if table:
-                                for r in table[1:]:
-                                    if r and r[0] and str(r[0]).strip() == uid:
-                                        res = {'id': r[0], 'blk': r[1], 'area': r[4], 'price': extract_price(r[6]), 'status': 'متاح'}
-                                        break
+            # إذا لم تكن في السحابة، ابحث في الذاكرة (التي قرأت من الـ PDF)
+            if not res and uid in all_units:
+                res = all_units[uid]
+
             if res:
                 st.markdown(f"<div class='modern-card'><h2 style='color:#1B3022;'>القطعة رقم {res['id']} ({res['status']})</h2><hr><div style='display:grid; grid-template-columns: 1fr 1fr 1fr; text-align:center;'><div><p>رقم البلك</p><b class='highlight-val'>{res['blk']}</b></div><div><p>المساحة</p><b class='highlight-val'>{res['area']} م²</b></div><div><p>السعر الأساسي</p><b class='highlight-val'>{format_money_en(float(res['price']))}</b></div></div></div>", unsafe_allow_html=True)
                 
@@ -127,32 +136,11 @@ if check_password():
                     disc = col2.number_input("📉 نسبة الخصم (%):", 0.0, 100.0, 0.0)
                     final_p = float(res['price']) * (1 - disc/100)
                     
-                    st.markdown(f"<h3 style='text-align:center; color:{Z_COPPER};'>الصافي قبل الرسوم: {format_money_en(final_p)} ريال</h3>", unsafe_allow_html=True)
-                    st.markdown(f"<h3 style='text-align:center; color:{Z_DARK};'>الإجمالي (شامل الرسوم): {format_money_en(final_p + 2000)} ريال</h3>", unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='text-align:center; color:{Z_COPPER};'>الصافي: {format_money_en(final_p)} ريال</h3>", unsafe_allow_html=True)
                     
                     if c_name:
-                        word_data = create_word_offer(res, c_name, final_p)
-                        if word_data:
-                            st.download_button(
-                                label="✨ استخراج وتحميل عرض السعر الفاخر ✨",
-                                data=word_data,
-                                file_name=f"عرض_الزمردة_{c_name}.docx",
-                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                            )
-            else: st.error("❌ غير موجود")
-
-    with tab2:
-        st.markdown("<div class='modern-card'><h3>⚙️ تعديل السحابة</h3></div>", unsafe_allow_html=True)
-        if db:
-            edit_id = st.text_input("رقم القطعة للتعديل:")
-            if edit_id:
-                curr = db.collection('units').document(edit_id).get()
-                curr_data = curr.to_dict() if curr.exists else {}
-                with st.form("cloud_form"):
-                    e_blk = st.text_input("رقم البلك:", value=curr_data.get('blk', ''))
-                    e_area = st.text_input("المساحة:", value=curr_data.get('area', ''))
-                    e_price = st.number_input("السعر:", value=float(curr_data.get('price', 0)))
-                    e_status = st.selectbox("الحالة:", ["متاح", "محجوز", "مباع"], index=0 if curr_data.get('status') == "متاح" else 1)
-                    if st.form_submit_button("💾 حفظ البيانات"):
-                        db.collection('units').document(edit_id).set({'id': edit_id, 'blk': e_blk, 'area': e_area, 'price': e_price, 'status': e_status})
-                        st.success("✅ تم التحديث!")
+                        word_file = create_word_offer(res, c_name, final_p)
+                        if word_file:
+                            st.download_button("📥 تحميل عرض السعر", data=word_file, file_name=f"عرض_{c_name}.docx")
+            else: st.error("مباعة قد تحتاج بحث وتعديل بالسحابه")
+                
