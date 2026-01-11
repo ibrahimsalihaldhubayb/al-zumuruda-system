@@ -6,11 +6,8 @@ from docxtpl import DocxTemplate
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# --- 1. إعدادات المظهر الفخم (نفس الواجهة السابقة) ---
-Z_COPPER = "#BC846C"   # برونزي
-Z_DARK = "#1B3022"     # أخضر غامق
-Z_LIGHT = "#F4F1EE"    # خلفية فاتحة
-
+# --- 1. التنسيق والواجهة الفخمة ---
+Z_COPPER, Z_DARK, Z_LIGHT = "#BC846C", "#1B3022", "#F4F1EE"
 st.set_page_config(page_title="نظام الزمردة العقاري", layout="wide")
 
 st.markdown(f"""
@@ -21,7 +18,6 @@ st.markdown(f"""
     h1, h2, h3, p, span, label, .stMarkdown {{ color: {Z_DARK} !important; }}
     .main-card {{ background: white; padding: 25px; border-radius: 15px; border-right: 12px solid {Z_COPPER}; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }}
     .val-box {{ color: {Z_COPPER} !important; font-size: 24px; font-weight: 800; }}
-    .label-text {{ font-weight: bold; font-size: 16px; opacity: 0.8; }}
     .stTabs [data-baseweb="tab"] p {{ color: {Z_DARK} !important; font-weight: bold; }}
     </style>
 """, unsafe_allow_html=True)
@@ -39,12 +35,12 @@ def init_firebase():
 
 db = init_firebase()
 
-# --- 3. معالجة البيانات (التحميل الذكي لضمان السرعة) ---
-@st.cache_data(show_spinner="جاري تحديث بيانات المخطط...")
-def load_combined_data():
+# --- 3. محرك البحث الذكي (شاغر أولاً ثم مخطط) ---
+@st.cache_data(show_spinner="جاري تحديث البيانات...")
+def load_and_index_data():
     inventory = {}
     
-    # أ. قراءة ملف "نموذج المخطط" (المرجع الشامل)
+    # أ. قراءة ملف "نموذج المخطط" كقاعدة بيانات شاملة
     master_files = glob.glob("*نموذج المخطط*.pdf")
     if master_files:
         with pdfplumber.open(master_files[0]) as p:
@@ -52,16 +48,16 @@ def load_combined_data():
                 table = page.extract_table()
                 if table:
                     for r in table[1:]:
-                        if r and r[0]:
+                        if r and len(r) > 0 and r[0]:
                             uid = str(r[0]).strip()
                             price_raw = "".join(re.findall(r'\d+', str(r[6]))) if len(r)>6 and r[6] else "0"
                             inventory[uid] = {
                                 'id': uid, 'blk': r[1], 'area': r[4],
                                 'price': float(price_raw) if price_raw else 0.0,
-                                'status': 'مباع' # الافتراضي مباع
+                                'status': 'مباع' # الافتراضي لكل المخطط أنه مباع
                             }
     
-    # ب. قراءة ملف "الشاغر" لتحديث الحالة إلى "متاح"
+    # ب. قراءة ملف "الشاغرة" وتحديث الحالة لـ "متاح"
     vacant_files = glob.glob("*الشاغرة*.pdf")
     if vacant_files:
         with pdfplumber.open(vacant_files[0]) as p:
@@ -69,86 +65,89 @@ def load_combined_data():
                 table = page.extract_table()
                 if table:
                     for r in table[1:]:
-                        if r and r[0]:
+                        if r and len(r) > 0 and r[0]:
                             uid = str(r[0]).strip()
+                            # إذا كانت في الشاغر، نحدث حالتها أو نضيفها لو لم تكن في المخطط
                             if uid in inventory:
                                 inventory[uid]['status'] = 'متاح'
+                            else:
+                                # في حال وجود قطعة في الشاغر وليست في ملف المخطط
+                                price_raw = "".join(re.findall(r'\d+', str(r[6]))) if len(r)>6 and r[6] else "0"
+                                inventory[uid] = {
+                                    'id': uid, 'blk': r[1], 'area': r[4],
+                                    'price': float(price_raw) if price_raw else 0.0,
+                                    'status': 'متاح'
+                                }
     return inventory
 
-# تحميل البيانات في الذاكرة ليكون البحث لحظياً
-units_inventory = load_combined_data()
+units_data = load_and_index_data()
 
-# --- 4. الواجهة الرئيسية ---
+# --- 4. واجهة البحث ---
 st.markdown(f"<h1 style='text-align:center;'>🏛️ بوابة مبيعات مشروع الزمردة</h1>", unsafe_allow_html=True)
 
-tab1, tab2 = st.tabs(["💎 محرك البحث مبيعات", "⚙️ لوحة تحكم السحابة"])
+tab1, tab2 = st.tabs(["💎 محرك البحث", "⚙️ الإدارة"])
 
 with tab1:
-    search_id = st.text_input("🔍 ادخل رقم القطعة:")
+    search_id = st.text_input("🔍 ادخل رقم القطعة للبحث:")
     if search_id:
         uid = str(search_id).strip()
-        if uid in units_inventory:
-            unit = units_inventory[uid]
+        
+        if uid in units_data:
+            unit = units_data[uid]
+            status = unit['status']
             
             # جلب الحالة من السحابة (الأولوية القصوى)
-            current_status = unit['status']
             if db:
                 try:
                     doc = db.collection('units').document(uid).get(timeout=1)
-                    if doc.exists: current_status = doc.to_dict().get('status', current_status)
+                    if doc.exists: status = doc.to_dict().get('status', status)
                 except: pass
 
-            # تحديد لون الحالة
-            status_color = "#28a745" if current_status == "متاح" else "#dc3545"
-            if current_status == "محجوز": status_color = "#ffc107"
-
+            # تنسيق العرض حسب الحالة
+            st_color = "#28a745" if status == "متاح" else "#dc3545"
             st.markdown(f"""
             <div class="main-card">
-                <h2 style="margin-bottom:20px;">القطعة رقم {unit['id']} <span style="color:{status_color};">({current_status})</span></h2>
+                <h2 style="margin-bottom:20px;">تفاصيل القطعة {unit['id']} <span style="color:{st_color};">({status})</span></h2>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-                    <div><span class="label-text">رقم البلك:</span><br><span class="val-box">{unit['blk']}</span></div>
-                    <div><span class="label-text">المساحة:</span><br><span class="val-box">{unit['area']} م²</span></div>
-                    <div><span class="label-text">السعر الأساسي:</span><br><span class="val-box">{unit['price']:,.2f} ريال</span></div>
+                    <div><span style="opacity:0.7;">رقم البلك:</span><br><span class="val-box">{unit['blk']}</span></div>
+                    <div><span style="opacity:0.7;">المساحة:</span><br><span class="val-box">{unit['area']} م²</span></div>
+                    <div><span style="opacity:0.7;">السعر الأساسي:</span><br><span class="val-box">{unit['price']:,.2f} ريال</span></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            if current_status == "متاح":
+            if status == "متاح":
                 st.write("---")
-                col_c1, col_c2 = st.columns(2)
-                with col_c1: cust_name = st.text_input("👤 اسم العميل الموقر:")
-                with col_c2: discount_pct = st.number_input("📉 نسبة الخصم (%):", 0.0, 100.0, 0.0)
-
-                final_p = unit['price'] * (1 - discount_pct/100)
-                total_w_fees = final_p + 2000
+                col1, col2 = st.columns(2)
+                c_name = col1.text_input("👤 اسم العميل:")
+                disc = col2.number_input("📉 نسبة الخصم %:", 0.0, 100.0, 0.0)
                 
-                st.success(f"الصافي: {final_p:,.2f} ريال | الإجمالي مع السعي: {total_w_fees:,.2f} ريال")
-
-                if cust_name:
-                    if st.button("📄 إصدار عرض السعر"):
-                        template_path = "projecttemplate.docx"
-                        if os.path.exists(template_path):
-                            doc_tpl = DocxTemplate(template_path)
-                            doc_tpl.render({
-                                'date': datetime.now().strftime("%Y/%m/%d"),
-                                'name': cust_name, 'id': unit['id'], 'blk': unit['blk'],
-                                'area': unit['area'], 'price': f"{final_p:,.2f}",
-                                'fees': "2,000.00", 'total': f"{total_w_fees:,.2f}",
-                                'desc': f"قطعة {unit['id']} بلك {unit['blk']} بمساحة {unit['area']}"
-                            })
-                            out_io = io.BytesIO(); doc_tpl.save(out_io)
-                            st.download_button(f"📥 تحميل عرض {cust_name}", out_io.getvalue(), f"عرض_{cust_name}.docx")
+                f_price = unit['price'] * (1 - disc/100)
+                total = f_price + 2000
+                st.info(f"الصافي بعد الخصم: {f_price:,.2f} ريال | الإجمالي مع السعي: {total:,.2f} ريال")
+                
+                if c_name and st.button("📄 إصدار عرض السعر"):
+                    if os.path.exists("projecttemplate.docx"):
+                        tpl = DocxTemplate("projecttemplate.docx")
+                        tpl.render({
+                            'date': datetime.now().strftime("%Y/%m/%d"), 'name': c_name,
+                            'id': unit['id'], 'blk': unit['blk'], 'area': unit['area'],
+                            'price': f"{f_price:,.2f}", 'fees': "2,000.00", 'total': f"{total:,.2f}",
+                            'desc': f"قطعة {unit['id']} بلك {unit['blk']}"
+                        })
+                        out = io.BytesIO(); tpl.save(out)
+                        st.download_button(f"📥 تحميل العرض", out.getvalue(), f"عرض_{c_name}.docx")
+            else:
+                st.warning("⚠️ هذه القطعة مباعة حالياً ولا يمكن إصدار عرض سعر لها.")
         else:
-            st.error("❌ هذه القطعة غير موجودة في المخطط العام.")
+            st.error("❌ عذراً، رقم هذه القطعة غير موجود في السجلات (تأكد من الرقم).")
 
 with tab2:
-    st.subheader("إدارة حالة الوحدات سحابياً")
+    st.subheader("تحديث حالة القطع سحابياً")
     if db:
-        u_id = st.text_input("ادخل رقم القطعة لتحديثها:")
-        new_status = st.selectbox("الحالة الجديدة:", ["متاح", "مباع", "محجوز"])
-        if st.button("حفظ التغييرات في السحابة"):
-            db.collection('units').document(str(u_id)).set({'status': new_status}, merge=True)
-            st.success(f"✅ تم تحديث {u_id} إلى {new_status}")
-            st.cache_data.clear() # لمسح الكاش وتحديث البيانات فوراً
-    else:
-        st.error("السحابة غير متصلة.")
+        u_id = st.text_input("رقم القطعة:")
+        n_st = st.selectbox("الحالة الجديدة:", ["متاح", "مباع", "محجوز"])
+        if st.button("تحديث السحابة"):
+            db.collection('units').document(str(u_id)).set({'status': n_st}, merge=True)
+            st.success(f"تم تحديث {u_id} بنجاح")
+            st.cache_data.clear()
